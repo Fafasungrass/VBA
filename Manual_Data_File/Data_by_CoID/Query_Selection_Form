@@ -1,0 +1,40 @@
+' VBA code for the User Form
+
+Private Sub UserForm_Initialize()
+    Dim conn As WorkbookConnection
+    
+    ' Populate the ListBox with all connection names
+    For Each conn In ThisWorkbook.Connections
+        Me.lstQueries.AddItem conn.Name
+    Next conn
+End Sub
+Private Sub btnSubmit_Click()
+    
+    ' Validate user inputs
+    If Me.lstQueries.ListIndex = -1 Then
+        MsgBox "Please select a query from the list.", vbExclamation
+        Exit Sub
+    End If
+    
+    If Me.txtCoId.Text = "" Then
+        MsgBox "Please enter a COID value.", vbExclamation
+        Exit Sub
+    End If
+    
+    If Not IsDate(Me.txtStartDate.Text) Or Not IsDate(Me.txtEndDate.Text) Then
+        MsgBox "Please enter a valid date ranges in 'yyy-mm-dd' format.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Pass the inputs to the main procedure
+    UpdateQueryCommandText Me.lstQueries.Value, Me.txtCoId.Text, Me.txtStartDate.Text, Me.txtEndDate.Text
+    
+    ' Close the UserForm
+    Me.Hide
+    
+End Sub
+Private Sub btnCancel_Click()
+    ' Close the UserForm without making changes
+    Me.Hide
+End Sub
+
