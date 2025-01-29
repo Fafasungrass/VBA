@@ -1,3 +1,5 @@
+' Module 1 VBA code in file 'Manual Data by NPI.xlsm'
+
 Sub ShowQueryNPISelectionForm()
     ' Show the UserForm
     QueryNPISelectionForm.Show
