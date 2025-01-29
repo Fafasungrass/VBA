@@ -1,0 +1,74 @@
+'VBA code for Module 1 in file 'Manual Data by CoID.xlsm'
+
+Sub ShowQuerySelectionForm()
+    ' Show the UserForm
+    QuerySelectionForm.Show
+End Sub
+
+Sub UpdateQueryCommandText(selectedQuery As String, coId As String, startDate As String, endDate As String)
+    Dim conn As WorkbookConnection
+    Dim cmdText As String
+    Dim startCoId As Long, endCoId As Long
+    Dim startDatePos As Long, endDatePos As Long
+    Dim oldDateRange As String
+    Dim newDateRange As String
+    
+    ' Loop through all connections to find the selected query
+    For Each conn In ThisWorkbook.Connections
+        
+        If conn.Name = selectedQuery Then
+        
+            ' Get the current CommandText
+            cmdText = conn.OLEDBConnection.CommandText
+            
+            ' Find the starting position of "Coid IN ("
+            startCoId = InStr(1, cmdText, "Coid IN (", vbTextCompare)
+            If startCoId > 0 Then
+                endCoId = InStr(startCoId, cmdText, ")", vbTextCompare)
+                cmdText = Left(cmdText, startCoId + 8) & coId & Mid(cmdText, endCoId)
+            Else
+                MsgBox "Could not find 'Coid IN (...)' in the query. Please check the query format.", vbExclamation
+                Exit Sub
+            End If
+            
+            
+            ' Update PeDate BETWEEN ... AND ...
+            startDatePos = InStr(1, cmdText, "PeDate BETWEEN '", vbTextCompare)
+            If startDatePos > 0 Then
+                ' Find the end of the current date range (up to "AND")
+                endDatePos = InStr(startDatePos, cmdText, "' AND '")
+                If endDatePos > 0 Then
+                    ' Extract the old date range
+                    oldDateRange = Mid(cmdText, startDatePos, (endDatePos - startDatePos) + 18)
+                    
+                    ' Build the new date range
+                    newDateRange = "PeDate BETWEEN '" & startDate & "' AND '" & endDate & "'"
+                    
+                    ' Replace the old date range with the new one
+                    cmdText = Replace(cmdText, oldDateRange, newDateRange)
+                Else
+                    MsgBox "Could not find 'AND' in the date range. Please check the query format.", vbExclamation
+                    Exit Sub
+                End If
+            Else
+                MsgBox "Could not find the 'PeDate BETWEEN ...' in the query. Please check the query format.", vbExclamation
+                Exit Sub
+            End If
+            
+                
+            
+            ' Update the CommandText
+            conn.OLEDBConnection.CommandText = cmdText
+            
+            ' Refresh the query to apply changes
+            conn.OLEDBConnection.Refresh
+            MsgBox "CoID updated and query refreshed successfully.", vbInformation
+            Exit Sub
+        End If
+    Next conn
+    
+    ' If the selected connection is not found
+    MsgBox "Selected query not found. Please ensure it exists in the workbook.", vbCritical
+End Sub
+
+
