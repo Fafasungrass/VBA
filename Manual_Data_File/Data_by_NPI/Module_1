@@ -1,0 +1,124 @@
+Sub ShowQueryNPISelectionForm()
+    ' Show the UserForm
+    QueryNPISelectionForm.Show
+End Sub
+
+Sub UpdateQueryCommandTextNPI(selectedQuery As String, servicingNPI As String, supervisingNPI As String, startDateNPI As String, endDateNPI As String)
+    Dim conn As WorkbookConnection
+    Dim cmdText As String
+    Dim startDatePos As Long, endDatePos As Long
+    Dim servicingNPIStartPos As Long, supervisingNPIStartPos As Long
+    Dim servicingNPIEndPos As Long, supervisingNPIEndPos As Long
+    Dim oldDateRange As String, oldNPICondition As String
+    Dim newDateRange As String, newNPICondition As String
+
+    ' Ensure NPIs are treated as Strings (to prevent truncation issues)
+    servicingNPI = Trim(CStr(servicingNPI))
+    supervisingNPI = Trim(CStr(supervisingNPI))
+
+    ' Validate if Supervising NPI is empty
+    If supervisingNPI = "" Or Len(supervisingNPI) < 10 Then
+        supervisingNPI = servicingNPI ' Assign ServicingNPI if blank
+    End If
+
+    ' Debugging Output - Check input values before updating SQL
+    Debug.Print "DEBUG: Servicing NPI =", servicingNPI
+    Debug.Print "DEBUG: Supervising NPI =", supervisingNPI
+    Debug.Print "DEBUG: Start Date =", startDateNPI
+    Debug.Print "DEBUG: End Date =", endDateNPI
+
+    ' Validate NPI values (Must be exactly 10 digits)
+    If Len(servicingNPI) <> 10 Or Len(supervisingNPI) <> 10 Then
+        MsgBox "Error: NPI values must be exactly 10 digits." & vbCrLf & _
+               "Servicing NPI: " & servicingNPI & vbCrLf & _
+               "Supervising NPI: " & supervisingNPI, vbExclamation
+        Exit Sub
+    End If
+
+    ' Loop through all connections to find the selected query
+    For Each conn In ThisWorkbook.Connections
+        If conn.Name = selectedQuery Then
+        
+            ' Get the current CommandText
+            cmdText = conn.OLEDBConnection.CommandText
+            
+            ' Debug: Print original SQL query before modifications
+            Debug.Print "DEBUG: Original SQL Query:"
+            Debug.Print cmdText
+            Debug.Print "--------------------------------------"
+
+            ' === Update PeDate BETWEEN ... AND ... ===
+            startDatePos = InStr(1, cmdText, "PeDate BETWEEN '", vbTextCompare)
+            If startDatePos > 0 Then
+                endDatePos = InStr(startDatePos, cmdText, "' AND '")
+                If endDatePos > 0 Then
+                    ' Extract the old date range
+                    oldDateRange = Mid(cmdText, startDatePos, (endDatePos - startDatePos) + 18)
+                    
+                    ' Construct the new date range
+                    newDateRange = "PeDate BETWEEN '" & Trim(startDateNPI) & "' AND '" & Trim(endDateNPI) & "'"
+                    
+                    ' Replace the old date range with the new one
+                    cmdText = Replace(cmdText, oldDateRange, newDateRange)
+                Else
+                    MsgBox "Error: Could not locate 'AND' in the date range. Please check the query format.", vbExclamation
+                    Exit Sub
+                End If
+            Else
+                MsgBox "Error: Could not find 'PeDate BETWEEN ...' in the query. Please check the query format.", vbExclamation
+                Exit Sub
+            End If
+            
+            ' === Update ServicingProviderNPI and SupervisingProviderNPI ===
+            servicingNPIStartPos = InStr(1, cmdText, "((ServicingProviderNPI = '", vbTextCompare)
+            If servicingNPIStartPos > 0 Then
+                supervisingNPIEndPos = InStr(servicingNPIStartPos, cmdText, "))", vbBinaryCompare) ' Locate the closing brackets
+                If supervisingNPIEndPos > 0 Then
+                    ' Extract the full old NPI condition
+                    oldNPICondition = Mid(cmdText, servicingNPIStartPos, (supervisingNPIEndPos - servicingNPIStartPos) + 2)
+                    
+                    ' Debug: Print the extracted NPI condition
+                    Debug.Print "DEBUG: Extracted Old NPI Condition =", oldNPICondition
+                    
+                    ' Construct the new NPI condition with correct parentheses
+                    newNPICondition = "((ServicingProviderNPI = '" & servicingNPI & "' OR SupervisingProviderNPI = '" & supervisingNPI & "'))"
+                    
+                    ' Replace the old condition with the new one
+                    cmdText = Replace(cmdText, oldNPICondition, newNPICondition)
+                    
+                    ' Debug: Print the modified NPI condition
+                    Debug.Print "DEBUG: New NPI Condition =", newNPICondition
+                Else
+                    MsgBox "Error: Could not find the end of the NPI condition. Please check the query format.", vbExclamation
+                    Exit Sub
+                End If
+            Else
+                MsgBox "Error: Could not find '(ServicingProviderNPI = ...' in the query. Please check the query format.", vbExclamation
+                Exit Sub
+            End If
+            
+            ' Debug: Print the modified SQL query before updating
+            Debug.Print "DEBUG: Modified SQL Query:"
+            Debug.Print cmdText
+            Debug.Print "--------------------------------------"
+
+            ' === Update the CommandText ===
+            On Error GoTo SQLUpdateError
+            conn.OLEDBConnection.CommandText = cmdText
+            
+            ' Refresh the query to apply changes
+            conn.OLEDBConnection.Refresh
+            MsgBox "Query updated successfully with new NPIs and date range.", vbInformation
+            Exit Sub
+        End If
+    Next conn
+    
+    ' If the selected connection is not found
+    MsgBox "Error: Selected query not found. Please ensure it exists in the workbook.", vbCritical
+    Exit Sub
+    
+SQLUpdateError:
+    MsgBox "Error refreshing the query. Please manually check SQL syntax: " & vbCrLf & cmdText, vbCritical
+End Sub
+
+
