@@ -1,0 +1,46 @@
+' VBA code associated with user form 'QueryNPISelectionForm'
+
+Private Sub UserForm_Initialize()
+    Dim conn As WorkbookConnection
+    
+    ' Populate the ListBox with all connection names
+    For Each conn In ThisWorkbook.Connections
+        Me.lstQueriesNPI.AddItem conn.Name
+    Next conn
+End Sub
+Private Sub btnSubmitNPI_Click()
+    
+    ' Validate user inputs
+    If Me.lstQueriesNPI.ListIndex = -1 Then
+        MsgBox "Please select a query from the list.", vbExclamation
+        Exit Sub
+    End If
+    
+    If Me.servicingNPI.Text = "" Then
+        MsgBox "Please enter a Servicing Provider NPI value.", vbExclamation
+        Exit Sub
+    End If
+    
+    If Me.supervisingNPI.Text = "" Then
+        MsgBox "Please enter a Supervising Provider NPI value.", vbExclamation
+        Exit Sub
+    End If
+    
+    
+    If Not IsDate(Me.txtStartDateNPI.Text) Or Not IsDate(Me.txtEndDateNPI.Text) Then
+        MsgBox "Please enter a valid date ranges in 'yyyy-mm-dd' format.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Pass the inputs to the main procedure
+    UpdateQueryCommandTextNPI Me.lstQueriesNPI.Value, Me.servicingNPI.Text, Me.supervisingNPI.Text, Me.txtStartDateNPI.Text, Me.txtEndDateNPI.Text
+    
+    ' Close the UserForm
+    Me.Hide
+    
+End Sub
+Private Sub btnCancelNPI_Click()
+    ' Close the UserForm without making changes
+    Me.Hide
+End Sub
+
